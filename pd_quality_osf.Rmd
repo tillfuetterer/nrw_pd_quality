@@ -1,0 +1,3661 @@
+---
+title: "NRW PD QUALITY"
+author: "Tim Fütterer"
+date: "March 20th, 2023"
+output:
+  pdf_document: default
+  html_document: default
+---
+### INFORMATION REGARDING DATA
+```{r information regarding data}
+#The data sets used for the study are confidential and unfortunately may not be made publicly available. However, in order to better understand the analysis code, we have generated synthetic data. Of course, the results will be (slightly) different if you use the synthetic data. 
+```
+## SETUP {.tabset .tabset-pills}
+### CLOSE SETUP
+### SETUP 
+```{r setup}
+# load package
+library(knitr)
+
+# options for chunks
+knitr::opts_chunk$set(
+  echo = FALSE,
+  #comment = NA,
+  warning = FALSE,
+  error = FALSE,
+  message = FALSE,
+  tidy = TRUE
+  )
+
+# unload package
+pkgload:::unload("knitr")
+
+# see current working directory
+getwd()
+
+# clean environment
+rm(list = ls())
+```
+### DOCUMENTATION AND CITATIONS
+```{r packages overview and citations}
+# overview packages
+pkgList <- c(
+  "rmarkdown",
+  "knitr",
+  "naniar",
+  "dynamic",
+  "lavaan",
+  "semTools",
+  "dplyr",
+  "mice",
+  "psych",
+  "sjPlot",
+  "synthpop"
+  )
+
+for (i in 1:length(pkgList)) {
+  cat(
+    paste0(
+      i,
+      ". ",
+      pkgList[i],
+      " [", "v", utils::packageVersion(pkgList[i]),
+      ", @R-",
+      pkgList[i],
+      "]\n"
+      )
+    )
+}
+
+# session info
+sessionInfo()
+R.Version()$version.string
+
+# citations
+citation()
+citation("knitr")
+citation("psych")
+citation("naniar")
+citation("lavaan")
+citation("dynamic")
+citation("semTools")
+citation("mice")
+citation("sjPlot")
+citation("dplyr")
+citation("synthpop")
+
+# load package
+library(rstudioapi)
+
+versionInfo()
+versionInfo()$citation
+
+# unload package
+pkgload:::unload("rstudioapi")
+
+# clean environment
+rm(i, pkgList)
+```
+### DATA INPUT
+```{r read data}
+# read synthetic data because we do not have permission to share the original data
+data <- readRDS("data_syn.rds")
+data <- as.data.frame(data$syn)
+```
+## DATA INSPECTION {.tabset .tabset-pills}
+### MISSING VALUES
+```{r analyzing missing values}
+# load package
+library(naniar)
+
+# data - participants
+n_miss(data) # 7559
+n_complete(data) # 23277
+# percentage of missing data
+n_miss(data)/(n_miss(data)+n_complete(data))*100 # 24.51%
+gg_miss_var(data)
+
+# dependent variable
+keep <- c("beEn_a", "beEn_b", "beEn_c_r", "beEn_d", "beEn_e", "cogEn_a_r", "cogEn_b", "cogEn_c", "cogEn_d", "affEn_a", "affEn_b_r", "affEn_c", "affEn_d")
+n_miss(data[,keep])/(n_miss(data[,keep])+n_complete(data[,keep]))*100 # 14.98%
+gg_miss_var(data[,keep])
+rm(keep)
+
+# independent variable
+keep <- c("klar1", "klar2", "klar3", "klar4", "klar5", "praxis1", "praxis2", "praxis3", "praxis4", "aktiv1", "aktiv2", 
+          "aktiv3", "aktiv4", "aktiv5", "aktiv6", "koop1", "koop2", "koop3", "learn_a", "learn_b", "learn_c", "learn_d",
+          "sex", "Art", "expT1", "expT3", "Dauer")
+n_miss(data[,keep])/(n_miss(data[,keep])+n_complete(data[,keep]))*100 # 33.04%
+gg_miss_var(data[,keep])
+rm(keep)
+
+# inspect conspicuous variable
+n_miss(data$cogEn_d) # 422
+n_complete(data$cogEn_d) # 171
+n_miss(data$cogEn_d)/(n_miss(data$cogEn_d)+n_complete(data$cogEn_d))*100 # 71.16%
+
+# Little's missing completely at random (MCAR) test
+dim(data[,c("klar1", "klar2", "klar3", "klar4", "klar5", "praxis1", "praxis2", "praxis3", "praxis4", "aktiv1", "aktiv2", "aktiv3", "aktiv4", "aktiv5", "aktiv6", "koop1", "koop2", "koop3", "learn_a", "learn_b", "learn_c", "learn_d", "sex", "Art", "expT1", "expT3", "Dauer", "beEn_a", "beEn_b", "beEn_c_r", "beEn_d", "beEn_e", "cogEn_a_r", "cogEn_b", "cogEn_c", "cogEn_d", "affEn_a", "affEn_b_r", "affEn_c", "affEn_d")])
+mcar_test(data[,c("klar1", "klar2", "klar3", "klar4", "klar5", "praxis1", "praxis2", "praxis3", "praxis4", "aktiv1", "aktiv2", "aktiv3", "aktiv4", "aktiv5", "aktiv6", "koop1", "koop2", "koop3", "learn_a", "learn_b", "learn_c", "learn_d", "sex", "Art", "expT1", "expT3", "Dauer", "beEn_a", "beEn_b", "beEn_c_r", "beEn_d", "beEn_e", "cogEn_a_r", "cogEn_b", "cogEn_c", "cogEn_d", "affEn_a", "affEn_b_r", "affEn_c", "affEn_d")])
+
+# unload package
+pkgload:::unload("naniar")
+```
+### RELIABILITY
+```{r internal consistency}
+  # load package
+library(psych)
+library(GPArotation)
+
+# dependent scales
+reliability(data[, c("beEn_a", "beEn_b", "beEn_c_r", "beEn_d", "beEn_e")],
+            nfactors = 2,
+            plot = TRUE
+            ) # Alpha = .0.72
+#reliability(data[, c("cogEn_a_r", "cogEn_b", "cogEn_c", "cogEn_d")],
+#            nfactors = 2,
+#            plot = TRUE
+#            ) # Alpha = (after MI :"  I am sorry: missing values (NAs) in the correlation matrix do not allow me to continue. Please drop those variables and try again.")
+reliability(data[, c("affEn_a", "affEn_b_r", "affEn_c", "affEn_d")],
+            nfactors = 2,
+            plot = TRUE
+            ) # Alpha = .0.88
+
+# independent scales
+reliability(data[, c("klar1", "klar2", "klar3", "klar4", "klar5")],
+            nfactors = 2,
+            plot = TRUE
+            ) # Alpha = .86
+reliability(data[c("praxis1", "praxis2", "praxis3", "praxis4")],
+            nfactors = 2,
+            plot = TRUE
+            ) # Alpha = .88
+reliability(data[, c("aktiv1", "aktiv2", "aktiv3", "aktiv4", "aktiv5", "aktiv6")],
+            nfactors = 2,
+            plot = TRUE
+            ) # Alpha = .87
+reliability(data[, c("koop1", "koop2", "koop3")],
+            nfactors = 2,
+            plot = TRUE
+            ) # Alpha = .82
+reliability(data[, c("learn_a", "learn_b", "learn_c", "learn_d")],
+            nfactors = 2,
+            plot = TRUE
+            ) # Alpha = .83
+
+# unload package
+pkgload:::unload("psych", "PArotation")
+```
+### FACTOR STRUCTURE
+```{r cfa FIML}
+# load package
+library(lavaan)
+
+
+      ##############
+      # PD quality #
+      ##############
+
+# goal clarity
+klar.mod <- '
+klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+'
+fit <- cfa(klar.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+modificationIndices(fit, sort. = TRUE) # klar3 ~~ klar4
+klar.mod <- '
+klar_1 =~ klar1 + klar2 + klar3 + klar4+ klar5
+klar3 ~~ klar4
+'
+fit <- cfa(klar.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+
+# dynamic fit indices
+# load package
+library(dynamic)
+
+klar.mod.dynf <- '
+klar_1 =~ .751*klar1 + .773*klar2 + .703*klar3 + .687*klar4 + .743*klar5
+klar3 ~~ -.272*klar4
+'
+n <- 593
+cfaOne(model=klar.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+
+
+# practical orientation
+praxis.mod <- '
+praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+'
+fit <- cfa(praxis.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# dynamic fit indices
+praxis.mod.dynf <- '
+praxis_1 =~ .725*praxis1 + .875*praxis2 + .772*praxis3 + .827*praxis4
+'
+n <- 593
+cfaOne(model=praxis.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+
+
+# cognitive activation
+aktiv.mod <- '
+aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+'
+fit <- cfa(aktiv.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# dynamic fit indices
+aktiv.mod.dynf <- '
+aktiv_1 =~ .655*aktiv1 + .722*aktiv2 + .732*aktiv3 + .730*aktiv4 + .743*aktiv5 + .763*aktiv6
+'
+n <- 593
+cfaOne(model=aktiv.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+
+
+# cooperation
+koop.mod <- '
+koop_1 =~ koop1 + koop2 + koop3
+'
+fit <- cfa(koop.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+
+# all constructs
+all.mod <- '
+klar_1    =~ klar1 + klar2 + klar3 + klar4 + klar5
+praxis_1  =~ praxis1 + praxis2 + praxis3 + praxis4
+aktiv_1   =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+koop_1    =~ koop1 + koop2 + koop3
+'
+fit <- cfa(all.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+modificationIndices(fit, sort. = TRUE) # klar3 ~~ klar4
+all.mod <- '
+klar_1    =~ klar1 + klar2 + klar3 + klar4 + klar5
+praxis_1  =~ praxis1 + praxis2 + praxis3 + praxis4
+aktiv_1   =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+koop_1    =~ koop1 + koop2 + koop3
+klar3     ~~ klar4
+'
+fit <- cfa(all.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+
+
+      ##############
+      # motivation #
+      ##############
+
+# motivation
+mot.mod <- '
+mot =~ learn_a + learn_b + learn_c + learn_d
+'
+fit <- cfa(mot.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# dynamic fit indices
+mot.mod.dynf <- '
+mot =~ .711*learn_a + .747*learn_b + .747*learn_c + .769*learn_d
+'
+n <- 593
+cfaOne(model=mot.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+
+
+
+      ##############
+      # engagement #
+      ##############
+
+# behavioral engagement
+ben.mod <- '
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+'
+fit <- cfa(ben.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# dynamic fit indices
+ben.mod.dynf <- '
+ben =~ .843*beEn_a + .577*beEn_b + .105*beEn_c_r + .668*beEn_d + .783*beEn_e
+'
+n <- 593
+cfaOne(model=ben.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+
+
+# affective engagement
+aen.mod <- '
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+'
+fit <- cfa(aen.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+modificationIndices(fit, sort. = TRUE) # affEn_b_r ~~ affEn_d
+aen.mod <- '
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+affEn_b_r ~~ affEn_d
+'
+fit <- cfa(aen.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# dynamic fit indices
+aen.mod.dynf <- '
+aen =~ .856*affEn_a + .786*affEn_b_r + .860*affEn_c + .747*affEn_d
+affEn_b_r ~~ -.201*affEn_d
+'
+n <- 593
+cfaOne(model=aen.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+
+
+# cognitive engagement
+cen.mod <- '
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+'
+fit <- cfa(cen.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# dynamic fit indices
+cen.mod.dynf <- '
+cen =~ .389*cogEn_a_r + .869*cogEn_b + .588*cogEn_c + .784*cogEn_d
+'
+n <- 593
+cfaOne(model=cen.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+
+
+# unload package
+pkgload:::unload("lavaan", "dynamic")
+```
+### SAMPLE DESCRIPTION
+```{r describe sample}
+# load package
+library(psych)
+
+# data - courses
+describe(data$Dauer/60)              # duration in hours
+table(data$Art)                      # school external / school internal
+prop.table(table(data$Art))          # school external / school internal (percentage)
+
+# data - participants
+prop.table(table(data$sex))     # gender (percentage)
+prop.table(table(data$Schulart))   # school type
+
+# Note: The follwing variables are in another dataset that could not be synthesized
+#prop.table(table(data$expT))    # teaching experience in years
+#prop.table(table(data$workT))   # full time or part time
+#prop.table(table(data$studyT))  # initial teacher education
+#prop.table(table(data$refT))    # preparation education ("Referendariat")
+
+# number of participants per course
+psych::describe(as.matrix(table(data$VnameT))[,1]) # M = 11
+
+# unload package
+pkgload:::unload("psych")
+```
+## RESULTS {.tabset .tabset-pills}
+### CLOSE RESULTS
+### DESCRIPTIVES
+```{r M and SD for variables and scales (Table 1, Table2), correlations (Table 3)}
+# write table for word
+# load packages
+library(sjPlot)
+library(dplyr)
+library(psych)
+
+# create data frame
+# independent variables
+klar <- as.data.frame(describe(data$klar))
+klar <- klar[,c(2,3,4,8,9)]
+rownames(klar)[1] <- "Instructional Clarity"
+klar$mean <- round(klar$mean, 2)
+klar$sd <- round(klar$sd, 2)
+
+praxis <- as.data.frame(describe(data$praxis))
+praxis <- praxis[,c(2,3,4,8,9)]
+rownames(praxis)[1] <- "Practical Relevance"
+praxis$mean <- round(praxis$mean, 2)
+praxis$sd <- round(praxis$sd, 2)
+
+aktiv <- as.data.frame(describe(data$aktiv))
+aktiv <- aktiv[,c(2,3,4,8,9)]
+rownames(aktiv)[1] <- "Cognitive Activation"
+aktiv$mean <- round(aktiv$mean, 2)
+aktiv$sd <- round(aktiv$sd, 2)
+
+koop <- as.data.frame(describe(data$koop))
+koop <- koop[,c(2,3,4,8,9)]
+rownames(koop)[1] <- "Opportunity for Cooperation"
+koop$mean <- round(koop$mean, 2)
+koop$sd <- round(koop$sd, 2)
+
+motivation <- as.data.frame(describe(data$motivation))
+motivation <- motivation[,c(2,3,4,8,9)]
+rownames(motivation)[1] <- "Motivation to Learn"
+motivation$mean <- round(motivation$mean, 2)
+motivation$sd <- round(motivation$sd, 2)
+
+# dependent variables
+beheng <- as.data.frame(describe(data$beheng))
+beheng <- beheng[,c(2,3,4,8,9)]
+rownames(beheng)[1] <- "Behavioral Engagement"
+beheng$mean <- round(beheng$mean, 2)
+beheng$sd <- round(beheng$sd, 2)
+
+cogeng <- as.data.frame(describe(data$cogeng))
+cogeng <- cogeng[,c(2,3,4,8,9)]
+rownames(cogeng)[1] <- "Cognitive Engagement"
+cogeng$mean <- round(cogeng$mean, 2)
+cogeng$sd <- round(cogeng$sd, 2)
+
+affeng <- as.data.frame(describe(data$affeng))
+affeng <- affeng[,c(2,3,4,8,9)]
+rownames(affeng)[1] <- "Affective Engagement"
+affeng$mean <- round(affeng$mean, 2)
+affeng$sd <- round(affeng$sd, 2)
+
+# merge data frames
+table1 <- bind_rows(klar, praxis, aktiv, koop, motivation, beheng, cogeng, affeng)
+table1$scale <- noquote(row.names(table1))
+table1 <- table1[,c(6,1:5)]
+table1 <- rename(table1,
+                 M = mean,
+                 SD = sd,
+                 Minimum = min,
+                 Maximum = max)
+# show table1
+table1
+
+# description for gender groups
+data_m <- filter(data, sex == 0)
+data_f <- filter(data, sex == 1)
+
+# male
+klar <- as.data.frame(describe(data_m$klar))
+klar <- klar[,c(2,3,4,8,9)]
+rownames(klar)[1] <- "Instructional Clarity"
+klar$mean <- round(klar$mean, 2)
+klar$sd <- round(klar$sd, 2)
+
+praxis <- as.data.frame(describe(data_m$praxis))
+praxis <- praxis[,c(2,3,4,8,9)]
+rownames(praxis)[1] <- "Practical Relevance"
+praxis$mean <- round(praxis$mean, 2)
+praxis$sd <- round(praxis$sd, 2)
+
+aktiv <- as.data.frame(describe(data_m$aktiv))
+aktiv <- aktiv[,c(2,3,4,8,9)]
+rownames(aktiv)[1] <- "Cognitive Activation"
+aktiv$mean <- round(aktiv$mean, 2)
+aktiv$sd <- round(aktiv$sd, 2)
+
+koop <- as.data.frame(describe(data_m$koop))
+koop <- koop[,c(2,3,4,8,9)]
+rownames(koop)[1] <- "Opportunity for Cooperation"
+koop$mean <- round(koop$mean, 2)
+koop$sd <- round(koop$sd, 2)
+
+motivation <- as.data.frame(describe(data_m$motivation))
+motivation <- motivation[,c(2,3,4,8,9)]
+rownames(motivation)[1] <- "Motivation to Learn"
+motivation$mean <- round(motivation$mean, 2)
+motivation$sd <- round(motivation$sd, 2)
+
+# dependent variables
+beheng <- as.data.frame(describe(data_m$beheng))
+beheng <- beheng[,c(2,3,4,8,9)]
+rownames(beheng)[1] <- "Behavioral Engagement"
+beheng$mean <- round(beheng$mean, 2)
+beheng$sd <- round(beheng$sd, 2)
+
+cogeng <- as.data.frame(describe(data_m$cogeng))
+cogeng <- cogeng[,c(2,3,4,8,9)]
+rownames(cogeng)[1] <- "Cognitive Engagement"
+cogeng$mean <- round(cogeng$mean, 2)
+cogeng$sd <- round(cogeng$sd, 2)
+
+affeng <- as.data.frame(describe(data_m$affeng))
+affeng <- affeng[,c(2,3,4,8,9)]
+rownames(affeng)[1] <- "Affective Engagement"
+affeng$mean <- round(affeng$mean, 2)
+affeng$sd <- round(affeng$sd, 2)
+
+# merge data frames
+table2_male <- bind_rows(klar, praxis, aktiv, koop, motivation, beheng, cogeng, affeng)
+table2_male$scale <- noquote(row.names(table2_male))
+table2_male <- table2_male[,c(6,1:5)]
+table2_male <- rename(table2_male,
+                 M = mean,
+                 SD = sd,
+                 Minimum = min,
+                 Maximum = max)
+
+# female
+klar <- as.data.frame(describe(data_f$klar))
+klar <- klar[,c(2,3,4,8,9)]
+rownames(klar)[1] <- "Instructional Clarity"
+klar$mean <- round(klar$mean, 2)
+klar$sd <- round(klar$sd, 2)
+
+praxis <- as.data.frame(describe(data_f$praxis))
+praxis <- praxis[,c(2,3,4,8,9)]
+rownames(praxis)[1] <- "Practical Relevance"
+praxis$mean <- round(praxis$mean, 2)
+praxis$sd <- round(praxis$sd, 2)
+
+aktiv <- as.data.frame(describe(data_f$aktiv))
+aktiv <- aktiv[,c(2,3,4,8,9)]
+rownames(aktiv)[1] <- "Cognitive Activation"
+aktiv$mean <- round(aktiv$mean, 2)
+aktiv$sd <- round(aktiv$sd, 2)
+
+koop <- as.data.frame(describe(data_f$koop))
+koop <- koop[,c(2,3,4,8,9)]
+rownames(koop)[1] <- "Opportunity for Cooperation"
+koop$mean <- round(koop$mean, 2)
+koop$sd <- round(koop$sd, 2)
+
+motivation <- as.data.frame(describe(data_f$motivation))
+motivation <- motivation[,c(2,3,4,8,9)]
+rownames(motivation)[1] <- "Motivation to Learn"
+motivation$mean <- round(motivation$mean, 2)
+motivation$sd <- round(motivation$sd, 2)
+
+# dependent variables
+beheng <- as.data.frame(describe(data_f$beheng))
+beheng <- beheng[,c(2,3,4,8,9)]
+rownames(beheng)[1] <- "Behavioral Engagement"
+beheng$mean <- round(beheng$mean, 2)
+beheng$sd <- round(beheng$sd, 2)
+
+cogeng <- as.data.frame(describe(data_f$cogeng))
+cogeng <- cogeng[,c(2,3,4,8,9)]
+rownames(cogeng)[1] <- "Cognitive Engagement"
+cogeng$mean <- round(cogeng$mean, 2)
+cogeng$sd <- round(cogeng$sd, 2)
+
+affeng <- as.data.frame(describe(data_f$affeng))
+affeng <- affeng[,c(2,3,4,8,9)]
+rownames(affeng)[1] <- "Affective Engagement"
+affeng$mean <- round(affeng$mean, 2)
+affeng$sd <- round(affeng$sd, 2)
+
+# merge data frames
+table2_female <- bind_rows(klar, praxis, aktiv, koop, motivation, beheng, cogeng, affeng)
+table2_female$scale <- noquote(row.names(table2_female))
+table2_female <- table2_female[,c(6,1:5)]
+table2_female <- rename(table2_female,
+                 M = mean,
+                 SD = sd,
+                 Minimum = min,
+                 Maximum = max)
+
+# merge data frames table2
+table2 <- bind_cols(table2_male, table2_female)
+
+# write tables for Word
+# overall
+tab_df(table1,
+       title = "Table 1 Means, Standard Deviation, Minimum, and Maximum of Scales",
+       file="tables/table1.doc")
+tab_df(table2,
+       title = "Table 2 Means, Standard Deviation, Minimum, and Maximum of Scales",
+       file="tables/table2.doc")
+tab_corr(data[,c("klar", "praxis", "aktiv", "koop", "motivation", "beheng", "cogeng", "affeng")],
+         title = "Table 3 Correlations of Scales",
+         na.deletion = "pairwise",
+         corr.method = "pearson",
+         file="tables/cor.doc")
+
+# clean environment
+rm(data_f, data_m, beheng, cogeng, affeng, motivation, koop, aktiv, praxis, klar, table1)
+
+# unload package
+pkgload:::unload("psych", "dplyr")
+```
+### STRUCTURAL EQUATION MODELS - CFA
+```{r CFA}
+# load package
+library(lavaan)
+
+# m0: CFA of PD quality
+m0 <- '
+# measurement models
+# independent variables
+klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+klar3 ~~ klar4
+praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+koop_1 =~ koop1 + koop2 + koop3
+'
+fit0 <- sem(
+  model = m0,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit0, standardized = TRUE, fit.measures = TRUE)
+
+# clean environment
+rm(m0, fit0)
+
+
+      ###############
+      # full models #
+      ###############
+
+ful.mod1 <- '
+        # independent variables
+        klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+        mot =~ learn_a + learn_b + learn_c + learn_d
+        # dependent variables
+        ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+        cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+        # Additional modifications
+        klar3 ~~ klar4
+        affEn_b_r ~~ affEn_d
+        beEn_c_r	~~	cogEn_a_r
+'
+fit.mod1 <- cfa(ful.mod1, data = data, missing = "fiml")
+summary(fit.mod1, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit.mod1, c("cfi","rmsea","srmr"))
+modificationIndices(fit.mod1, sort. = TRUE) # beEn_c_r	~~	cogEn_a_r
+
+ful.mod2 <- '
+        # independent variables
+        praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+        mot =~ learn_a + learn_b + learn_c + learn_d
+        # dependent variables
+        ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+        cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+        # Additional modifications
+        affEn_b_r ~~ affEn_d
+        beEn_c_r	~~	cogEn_a_r
+'
+fit.mod2 <- cfa(ful.mod2, data = data, missing = "fiml")
+summary(fit.mod2, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit.mod2, c("cfi","rmsea","srmr"))
+modificationIndices(fit.mod2, sort. = TRUE) # beEn_c_r	~~	cogEn_a_r
+
+ful.mod3 <- '
+        # independent variables
+        aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+        mot =~ learn_a + learn_b + learn_c + learn_d
+        # dependent variables
+        ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+        cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+        # Additional modifications
+        affEn_b_r ~~ affEn_d
+        beEn_c_r	~~	cogEn_a_r
+'
+fit.mod3 <- cfa(ful.mod3, data = data, missing = "fiml")
+summary(fit.mod3, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit.mod3, c("cfi","rmsea","srmr"))
+modificationIndices(fit.mod3, sort. = TRUE) # beEn_c_r	~~	cogEn_a_r
+
+ful.mod4 <- '
+        # independent variables
+        koop_1 =~ koop1 + koop2 + koop3
+        mot =~ learn_a + learn_b + learn_c + learn_d
+        # dependent variables
+        ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+        cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+        # Additional modifications
+        affEn_b_r ~~ affEn_d
+        beEn_c_r	~~	cogEn_a_r
+'
+fit.mod4 <- cfa(ful.mod4, data = data, missing = "fiml")
+summary(fit.mod4, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit.mod4, c("cfi","rmsea","srmr"))
+modificationIndices(fit.mod4, sort. = TRUE) # beEn_c_r	~~	cogEn_a_r
+
+# clean environment
+rm(ful.mod1, ful.mod2, ful.mod3, ful.mod4, fit.mod1,fit.mod2, fit.mod3,fit.mod4)
+
+# unload package
+pkgload:::unload("lavaan")
+```
+### STRUCTURAL EQUATION MODELS - RQ1
+```{r RQ1}
+# (RQ1) How is the quality of online professional development associated with teachers’ oPD engagement?
+
+# load package
+library(lavaan)
+
+# m1.0: PD quality (klar_1 only) - intercept only model
+m1.0 <- '
+# measurement models
+# independent variables
+klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1
+aen ~ 1
+cen ~ 1
+              
+# covariance structure of predictors
+klar_1 ~~ klar_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ klar_1 + mot + sex + expT1 + expT3 + Dauer + Art
+aen ~~ klar_1 + mot + sex + expT1 + expT3 + Dauer + Art
+cen ~~ klar_1 + mot + sex + expT1 + expT3 + Dauer + Art
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+klar3 ~~ klar4
+affEn_b_r ~~ affEn_d
+'
+
+fit1.0 <- sem(
+  model = m1.0,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit1.0, standardized = TRUE, fit.measures = TRUE)
+
+
+# m1.1: PD quality (klar_1 only)
+m1.1 <- '
+# measurement models
+# independent variables
+klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + klar_1 +                          # independent variables
+      sex + expT1 + expT3 + Dauer + Art     # control variables
+aen ~ 1 + klar_1 +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + klar_1 +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+klar_1 ~~ klar_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ mot
+cen ~~ mot
+aen ~~ mot
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+klar3 ~~ klar4
+affEn_b_r ~~ affEn_d
+'
+
+fit1.1 <- sem(
+  model = m1.1,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit1.1, standardized = TRUE, fit.measures = TRUE)
+
+PE1.1 <- parameterEstimates(fit1.1, rsquare = TRUE)
+PE1.1[156, "est"] # behavioral engagement, R2 = 12%
+PE1.1[157, "est"] # affective engagement, R2 = 68%
+PE1.1[158, "est"] # cognitive engagement, R2 = 47%
+
+
+# m2.0: PD quality (praxis_1 only) - intercept only model
+m2.0 <- '
+# measurement models
+# independent variables
+praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1
+aen ~ 1
+cen ~ 1
+              
+# covariance structure of predictors
+praxis_1 ~~ praxis_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ praxis_1 + mot + sex + expT1 + expT3 + Dauer + Art
+aen ~~ praxis_1 + mot + sex + expT1 + expT3 + Dauer + Art
+cen ~~ praxis_1 + mot + sex + expT1 + expT3 + Dauer + Art
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+        
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit2.0 <- sem(
+  model = m2.0,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit2.0, standardized = TRUE, fit.measures = TRUE)
+
+
+# m2.1: PD quality (praxis_1 only)
+m2.1 <- '
+# measurement models
+# independent variables
+praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + praxis_1 +                        # independent variables
+      sex + expT1 + expT3 + Dauer + Art     # control variables
+aen ~ 1 + praxis_1 +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + praxis_1 +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+praxis_1 ~~ praxis_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ mot
+aen ~~ mot
+cen ~~ mot
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+        
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit2.1 <- sem(
+  model = m2.1,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit2.1, standardized = TRUE, fit.measures = TRUE)
+
+PE2.1 <- parameterEstimates(fit2.1, rsquare = TRUE)
+PE2.1[151, "est"] # behavioral engagement, R2 = 18%
+PE2.1[152, "est"] # affective engagement, R2 = 62%
+PE2.1[153, "est"] # cognitive engagement, R2 = 43%
+
+
+# m3.0: PD quality (aktiv_1 only) - intercept only model
+m3.0 <- '
+# measurement models
+# independent variables
+aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+mot =~ learn_a + learn_b + learn_c + learn_d
+        
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1
+aen ~ 1
+cen ~ 1
+              
+# covariance structure of predictors
+aktiv_1 ~~ aktiv_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ aktiv_1 + mot + sex + expT1 + expT3 + Dauer + Art
+aen ~~ aktiv_1 + mot + sex + expT1 + expT3 + Dauer + Art
+cen ~~ aktiv_1 + mot + sex + expT1 + expT3 + Dauer + Art
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit3.0 <- sem(
+  model = m3.0,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit3.0, standardized = TRUE, fit.measures = TRUE)
+
+
+# m3.1: PD quality (aktiv_1 only) and motivation
+m3.1 <- '
+# measurement models
+# independent variables
+aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+mot =~ learn_a + learn_b + learn_c + learn_d
+        
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + aktiv_1 +                          # independent variables
+      sex + expT1 + expT3 + Dauer + Art      # control variables
+aen ~ 1 + aktiv_1 +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + aktiv_1 +
+      sex + expT1 + expT3 + Dauer + Art
+
+              
+# covariance structure of predictors
+aktiv_1 ~~ aktiv_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ mot
+aen ~~ mot
+cen ~~ mot
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit3.1 <- sem(
+  model = m3.1,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit3.1, standardized = TRUE, fit.measures = TRUE)
+
+PE3.1 <- parameterEstimates(fit3.1, rsquare = TRUE)
+PE3.1[159, "est"] # behavioral engagement, R2 = 22%
+PE3.1[160, "est"] # affective engagement, R2 = 80%
+PE3.1[161, "est"] # cognitive engagement, R2 = 60%
+
+# m4.0: PD quality (koop_1 only) - intercept only model
+m4.0 <- '
+# measurement models
+# independent variables
+koop_1 =~ koop1 + koop2 + koop3
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1
+aen ~ 1
+cen ~ 1
+              
+# covariance structure of predictors
+koop_1 ~~ koop_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ koop_1 + mot + sex + expT1 + expT3 + Dauer + Art
+cen ~~ koop_1 + mot + sex + expT1 + expT3 + Dauer + Art
+aen ~~ koop_1 + mot + sex + expT1 + expT3 + Dauer + Art
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit4.0 <- sem(
+  model = m4.0,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit4.0, standardized = TRUE, fit.measures = TRUE)
+
+
+# m4.1: PD quality (koop_1 only)
+m4.1 <- '
+# measurement models
+# independent variables
+koop_1 =~ koop1 + koop2 + koop3
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + koop_1 +                          # independent variables
+      sex + expT1 + expT3 + Dauer + Art     # control variables
+aen ~ 1 + koop_1 +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + koop_1 +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+koop_1 ~~ koop_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keep likelihood constant
+ben ~~ mot
+cen ~~ mot
+aen ~~ mot
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit4.1 <- sem(
+  model = m4.1,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit4.1, standardized = TRUE, fit.measures = TRUE)
+
+PE4.1 <- parameterEstimates(fit4.1, rsquare = TRUE)
+PE4.1[147, "est"] # behavioral engagement, R2 = 37%
+PE4.1[148, "est"] # affective engagement, R2 = 20%
+PE4.1[149, "est"] # cognitive engagement, R2 = 17%
+
+
+# m5.1: PD quality only (all) - second order factor
+# note: due to multicollinearity, we use a second order factor model
+
+
+m5.1 <- '
+# measurement models
+# independent variables
+klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+koop_1 =~ koop1 + koop2 + koop3
+SOF =~ klar_1 + praxis_1 + aktiv_1 + koop_1
+mot =~ learn_a + learn_b + learn_c + learn_d
+        
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + SOF +                               # independent variables
+      sex + expT1 + expT3 + Dauer + Art       # control variables
+aen ~ 1 + SOF +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + SOF +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+SOF ~~ SOF + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# keeping likelihood constant
+ben ~~ mot
+aen ~~ mot
+cen ~~ mot
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+        
+!additional modifications
+klar3 ~~ klar4
+affEn_b_r ~~ affEn_d
+beEn_c_r ~~ cogEn_a_r
+'
+
+fit5.1 <- sem(
+  model = m5.1,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit5.1, standardized = TRUE, fit.measures = TRUE)
+modificationIndices(fit5.1, sort = TRUE) # beEn_c_r ~~ cogEn_a_r
+
+PE5.1 <- parameterEstimates(fit5.1, rsquare = TRUE)
+PE5.1[225, "est"] # behavioral engagement, R2 = 22%
+PE5.1[226, "est"] # affective engagement, R2 = 59%
+PE5.1[227, "est"] # cognitive engagement, R2 = 83%
+
+
+# unload package
+pkgload:::unload("lavaan")
+```
+### STRUCTURAL EQUATION MODELS - RQ2
+```{r RQ2}
+# (RQ2) How is the motivation of teachers to learn associated with teachers’ oPD engagement?
+
+# load package
+library(lavaan)
+
+# m1.2: PD quality (klar_1 only) and motivation
+m1.2 <- '
+# measurement models
+# independent variables
+klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + klar_1 + mot +                    # independent variables
+      sex + expT1 + expT3 + Dauer + Art     # control variables
+aen ~ 1 + klar_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + klar_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+klar_1 ~~ klar_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+klar3 ~~ klar4
+affEn_b_r ~~ affEn_d
+'
+
+fit1.2 <- sem(
+  model = m1.2,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit1.2, standardized = TRUE, fit.measures = TRUE)
+
+PE1.2 <- parameterEstimates(fit1.2, rsquare = TRUE)
+PE1.2[156, "est"] # behavioral engagement, R2 = 20%
+PE1.2[157, "est"] # affective engagement, R2 = 70%
+PE1.2[158, "est"] # cognitive engagement, R2 = 55%
+
+
+# m2.2: PD quality (praxis_1 only) and motivation
+m2.2 <- '
+# measurement models
+# independent variables
+praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + praxis_1 + mot +                  # independent variables
+      sex + expT1 + expT3 + Dauer + Art     # control variables
+aen ~ 1 + praxis_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1+ praxis_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+praxis_1 ~~ praxis_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+        
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit2.2 <- sem(
+  model = m2.2,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit2.2, standardized = TRUE, fit.measures = TRUE)
+
+PE2.2 <- parameterEstimates(fit2.2, rsquare = TRUE)
+PE2.2[151, "est"] # behavioral engagement, R2 = 27%
+PE2.2[152, "est"] # affective engagement, R2 = 64%
+PE2.2[153, "est"] # cognitive engagement, R2 = 53%
+
+
+# m3.2: PD quality (aktiv_1 only) and motivation
+m3.2 <- '
+# measurement models
+# independent variables
+aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+mot =~ learn_a + learn_b + learn_c + learn_d
+        
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + aktiv_1 + mot +                    # independent variables
+      sex + expT1 + expT3 + Dauer + Art      # control variables
+aen ~ 1 + aktiv_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + aktiv_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+
+# covariance structure of predictors
+aktiv_1 ~~ aktiv_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit3.2 <- sem(
+  model = m3.2,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit3.2, standardized = TRUE, fit.measures = TRUE)
+
+PE3.2 <- parameterEstimates(fit3.2, rsquare = TRUE)
+PE3.2[159, "est"] # behavioral engagement, R2 = 27%
+PE3.2[160, "est"] # affective engagement, R2 = 80%
+PE3.2[161, "est"] # cognitive engagement, R2 = 65%
+
+
+# m4.2: PD quality (koop_1 only) and motivation
+m4.2 <- '
+# measurement models
+# independent variables
+koop_1 =~ koop1 + koop2 + koop3
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + koop_1 + mot +                    # independent variables
+      sex + expT1 + expT3 + Dauer + Art     # control variables
+aen ~ 1 + koop_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + koop_1 + mot +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+koop_1 ~~ koop_1 + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+
+# additional modifications
+affEn_b_r ~~ affEn_d
+'
+
+fit4.2 <- sem(
+  model = m4.2,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit4.2, standardized = TRUE, fit.measures = TRUE)
+
+PE4.2 <- parameterEstimates(fit4.2, rsquare = TRUE)
+PE4.2[147, "est"] # behavioral engagement, R2 = 42%
+PE4.2[148, "est"] # cognitive engagement, R2 = 23%
+PE4.2[149, "est"] # affective engagement, R2 = 29%
+
+
+# m5.2: PD quality only (all) - second order factor
+m5.2 <- '
+# measurement models
+# independent variables
+klar_1 =~ klar1 + klar2 + klar3 + klar4 + klar5
+praxis_1 =~ praxis1 + praxis2 + praxis3 + praxis4
+aktiv_1 =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+koop_1 =~ koop1 + koop2 + koop3
+SOF =~ klar_1 + praxis_1 + aktiv_1 + koop_1
+mot =~ learn_a + learn_b + learn_c + learn_d
+
+# dependent variables
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+        
+# structural model
+ben ~ 1 + SOF + mot +                         # independent variables
+      sex + expT1 + expT3 + Dauer + Art       # control variables
+aen ~ 1 + SOF + mot +
+      sex + expT1 + expT3 + Dauer + Art
+cen ~ 1 + SOF + mot +
+      sex + expT1 + expT3 + Dauer + Art
+              
+# covariance structure of predictors
+SOF ~~ SOF + mot + sex + expT1 + expT3 + Dauer + Art
+mot ~~ mot + sex + expT1 + expT3 + Dauer + Art
+sex ~~ expT1 + expT3 + Dauer + Art
+expT1 ~~ expT3 + Dauer + Art
+expT3 ~~ Dauer + Art
+Dauer ~~ Dauer + Art
+        
+# model constraints
+sex ~~ v1*sex
+sex ~ m1*1
+0 == m1-m1^2-v1
+        
+expT1 ~~ v2*expT1
+expT1 ~ m2*1
+0 == m2-m2^2-v2
+        
+expT3~~ v3*expT3
+expT3 ~ m3*1
+0 == m3-m3^2-v3
+        
+Art ~~ v4*Art
+Art ~ m4*1
+0 == m4-m4^2-v4
+        
+!additional modifications
+klar3 ~~ klar4
+affEn_b_r ~~ affEn_d
+beEn_c_r ~~ cogEn_a_r
+'
+
+fit5.2 <- sem(
+  model = m5.2,
+  data = data,
+  cluster = "VnameT",
+  missing = "fiml",
+  estimator = "mlr",
+  fixed.x = FALSE
+  )
+
+summary(fit5.2, standardized = TRUE, fit.measures = TRUE)
+
+PE5.2 <- parameterEstimates(fit5.2, rsquare = TRUE)
+PE5.2[252, "est"] # behavioral engagement, R2 = 38%
+PE5.2[253, "est"] # cognitive engagement, R2 = 64%
+PE5.2[254, "est"] # affective engagement, R2 = 85%
+
+# check if models are compareable
+logLik(fit5.1) # log Lik.' -15159.19 (df=163)
+logLik(fit5.2) # log Lik.' -15159.19 (df=163)
+anova(fit5.1, fit5.2)
+
+# plot m5.2
+#load package
+library(semPlot)
+
+semPaths(
+  fit5.2,
+  title = FALSE,
+  curvePivot = TRUE,
+  what = "std",
+  intercepts = FALSE,
+  residuals = FALSE,
+  layout = "tree2")
+
+# save figure
+png(file="figures/m5.2.png", width=1200, height=800)
+semPaths(
+  fit5.2,
+  title = FALSE,
+  curvePivot = TRUE,
+  what = "std",
+  intercepts = FALSE,
+  residuals = FALSE,
+  layout = "tree2"
+  )
+dev.off()
+
+# unload package
+pkgload:::unload("lavaan", "semPlot")
+```
+### STRUCTURAL EQUATION MODELS (LMS) - RQ3
+```{r RQ3}
+# (RQ3) Can the quality of online professional development compensate for low motivation of teachers to learn regarding teachers PD engagement and vice versa?
+
+
+          ######################
+          ### Approach - LMS ###
+          ######################
+
+# LMS = latent moderated structural equation model (LMS) - XWITH in Mplus
+
+# load package
+library(MplusAutomation)
+
+# prepare input file
+prepareMplusData(
+  data,
+  filename = "rq3.dat",
+  inpfile = "rq3.inp")
+
+# m3.1 - BE
+rq3.1_syntax_lms_be.inp <- c(
+"TITLE: RQ3.1 LMS - BE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = klar1 klar2 klar3 klar4 klar5",
+"         learn_a learn_b learn_c learn_d",
+"         beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"klar_1 BY klar1 klar2 klar3 klar4 klar5;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"klarXmot | klar_1 XWITH mot;",
+"",
+"! structural model",
+"ben ON klar_1 mot                   ! independent variables
+        sex expT1 expT3 Dauer Art    ! control variables
+        klarXmot;                    ! interaction
+ !aen ON klar_1 mot
+!        sex  expT1 expT3 Dauer Art
+!        klarXmot;
+ !cen ON klar_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       klarXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.1_syntax_lms_be.inp, "rq3.1_syntax_lms_be.inp")
+
+# run model
+runModels(
+  "rq3.1_syntax_lms_be.inp",
+  showOutput = TRUE
+  )
+
+# show results
+Mplus_syntax_lms_1_be <- readModels(
+  "rq3.1_syntax_lms_be.out"
+  )
+Mplus_syntax_lms_1_be[]
+
+# m3.1 - AE
+rq3.1_syntax_lms_ae.inp <- c(
+"TITLE: RQ3.1 LMS - AE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = klar1 klar2 klar3 klar4 klar5",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"klar_1 BY klar1 klar2 klar3 klar4 klar5;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"klarXmot | klar_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON klar_1 mot                   ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       klarXmot;                    ! interaction
+ aen ON klar_1 mot
+        sex  expT1 expT3 Dauer Art
+        klarXmot;
+ !cen ON klar_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       klarXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.1_syntax_lms_ae.inp, "rq3.1_syntax_lms_ae.inp")
+
+# run model
+runModels(
+  "rq3.1_syntax_lms_ae.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_1_ae <- readModels(
+  "rq3.1_syntax_lms_ae.out")
+Mplus_syntax_lms_1_ae[]
+
+# m3.1 - CE
+rq3.1_syntax_lms_ce.inp <- c(
+"TITLE: RQ3.1 LMS - CE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = klar1 klar2 klar3 klar4 klar5",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"klar_1 BY klar1 klar2 klar3 klar4 klar5;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"klarXmot | klar_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON klar_1 mot                   ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       klarXmot;                    ! interaction
+ !aen ON klar_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       klarXmot;
+ cen ON klar_1 mot
+        sex expT1 expT3 Dauer Art
+        klarXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.1_syntax_lms_ce.inp, "rq3.1_syntax_lms_ce.inp")
+
+# run model
+runModels(
+  "rq3.1_syntax_lms_ce.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_1_ce <- readModels(
+  "rq3.1_syntax_lms_ce.out")
+Mplus_syntax_lms_1_ce[]
+
+
+# m3.2 - BE
+rq3.2_syntax_lms_be.inp <- c(
+"TITLE: RQ3.2 LMS - BE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = praxis1 praxis2 praxis3 praxis4",
+"         learn_a learn_b learn_c learn_d",
+"         beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;",
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+" praxis_1 BY praxis1 praxis2 praxis3 praxis4;",
+" mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"praxXmot | praxis_1 XWITH mot;",
+"",
+"! structural model",
+"ben ON praxis_1 mot                 ! independent variables
+        sex expT1 expT3 Dauer Art    ! control variables
+        praxXmot;                    ! interaction
+ !aen ON praxis_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       praxXmot;
+ !cen ON praxis_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       praxXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.2_syntax_lms_be.inp, "rq3.2_syntax_lms_be.inp")
+
+# run model
+runModels(
+  "rq3.2_syntax_lms_be.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_2_be <- readModels(
+  "rq3.2_syntax_lms_be.out")
+Mplus_syntax_lms_2_be[]
+
+# m3.2 - AE
+rq3.2_syntax_lms_ae.inp <- c(
+"TITLE: RQ3.2 LMS - AE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = praxis1 praxis2 praxis3 praxis4",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;",
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+" praxis_1 BY praxis1 praxis2 praxis3 praxis4;",
+" mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"praxXmot | praxis_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON praxis_1 mot                 ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       praxXmot;                    ! interaction
+ aen ON praxis_1 mot
+        sex expT1 expT3 Dauer Art
+        praxXmot;
+ !cen ON praxis_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       praxXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.2_syntax_lms_ae.inp, "rq3.2_syntax_lms_ae.inp")
+
+# run model
+runModels(
+  "rq3.2_syntax_lms_ae.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_2_ae <- readModels(
+  "rq3.2_syntax_lms_ae.out")
+Mplus_syntax_lms_2_ae[]
+
+# m3.2 - AE
+rq3.2_syntax_lms_ce.inp <- c(
+"TITLE: RQ3.2 LMS - CE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = praxis1 praxis2 praxis3 praxis4",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;",
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+" praxis_1 BY praxis1 praxis2 praxis3 praxis4;",
+" mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"praxXmot | praxis_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON praxis_1 mot                 ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       praxXmot;                    ! interaction
+ !aen ON praxis_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       praxXmot;
+ cen ON praxis_1 mot
+        sex expT1 expT3 Dauer Art
+        praxXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.2_syntax_lms_ce.inp, "rq3.2_syntax_lms_ce.inp")
+
+# run model
+runModels(
+  "rq3.2_syntax_lms_ce.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_2_ce <- readModels(
+  "rq3.2_syntax_lms_ce.out")
+Mplus_syntax_lms_2_ce[]
+
+
+# m3.3 - BE
+rq3.3_syntax_lms_be.inp <- c(
+"TITLE: RQ3.3 LMS - BE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6",
+"         learn_a learn_b learn_c learn_d",
+"         beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"aktiv_1 BY aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"actiXmot | aktiv_1 XWITH mot;",
+"",
+"! structural model",
+"ben ON aktiv_1 mot                  ! independent variables
+        sex expT1 expT3 Dauer Art    ! control variables
+        actiXmot;                    ! interaction
+ !aen ON aktiv_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       actiXmot;
+ !cen ON aktiv_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       actiXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.3_syntax_lms_be.inp, "rq3.3_syntax_lms_be.inp")
+
+# run model
+runModels(
+  "rq3.3_syntax_lms_be.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_3_be <- readModels(
+  "rq3.3_syntax_lms_be.out")
+Mplus_syntax_lms_3_be[]
+
+# m3.3 - AE
+rq3.3_syntax_lms_ae.inp <- c(
+"TITLE: RQ3.3 LMS - AE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"aktiv_1 BY aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"actiXmot | aktiv_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON aktiv_1 mot                  ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       actiXmot;                    ! interaction
+ aen ON aktiv_1 mot
+        sex expT1 expT3 Dauer Art
+        actiXmot;
+ !cen ON aktiv_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       actiXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.3_syntax_lms_ae.inp, "rq3.3_syntax_lms_ae.inp")
+
+# run model
+runModels(
+  "rq3.3_syntax_lms_ae.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_3_ae <- readModels(
+  "rq3.3_syntax_lms_ae.out")
+Mplus_syntax_lms_3_ae[]
+
+# m3.3 - CE
+rq3.3_syntax_lms_ce.inp <- c(
+"TITLE: RQ3.3 LMS - CE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"aktiv_1 BY aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"actiXmot | aktiv_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON aktiv_1 mot                  ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       actiXmot;                    ! interaction
+ !aen ON aktiv_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       actiXmot;
+ cen ON aktiv_1 mot
+        sex expT1 expT3 Dauer Art
+        actiXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.3_syntax_lms_ce.inp, "rq3.3_syntax_lms_ce.inp")
+
+# run model
+runModels(
+  "rq3.3_syntax_lms_ce.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_3_ce <- readModels(
+  "rq3.3_syntax_lms_ce.out")
+Mplus_syntax_lms_3_ce[]
+
+
+# m3.4 - BE
+rq3.4_syntax_lms_be.inp <- c(
+"TITLE: RQ3.4 LMS - BE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = koop1 koop2 koop3",
+"         learn_a learn_b learn_c learn_d",
+"         beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"koop_1 BY koop1 koop2 koop3;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"koopXmot | koop_1 XWITH mot;",
+"",
+"! structural model",
+"ben ON koop_1 mot                   ! independent variables
+        sex expT1 expT3 Dauer Art    ! control variables
+        koopXmot;                    ! interaction
+ !aen ON koop_1 mot
+ !       sex  expT1 expT3 Dauer Art
+ !       koopXmot;
+ !cen ON koop_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       koopXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.4_syntax_lms_be.inp, "rq3.4_syntax_lms_be.inp")
+
+# run model
+runModels(
+  "rq3.4_syntax_lms_be.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_4_be <- readModels(
+  "rq3.4_syntax_lms_be.out")
+Mplus_syntax_lms_4_be[]
+
+# m3.4 - AE
+rq3.4_syntax_lms_ae.inp <- c(
+"TITLE: RQ3.4 LMS - AE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = koop1 koop2 koop3",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM=INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"koop_1 BY koop1 koop2 koop3;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"koopXmot | koop_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON koop_1 mot                   ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !      koopXmot;                    ! interaction
+ aen ON koop_1 mot
+        sex  expT1 expT3 Dauer Art
+        koopXmot;
+ !cen ON koop_1 mot
+ !       sex expT1 expT3 Dauer Art
+ !       koopXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.4_syntax_lms_ae.inp, "rq3.4_syntax_lms_ae.inp")
+
+# run model
+runModels(
+  "rq3.4_syntax_lms_ae.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_4_ae <- readModels(
+  "rq3.4_syntax_lms_ae.out")
+Mplus_syntax_lms_4_ae[]
+
+# m3.4 - CE
+rq3.4_syntax_lms_ce.inp <- c(
+"TITLE: RQ3.4 LMS - CE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = koop1 koop2 koop3",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM = INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"koop_1 BY koop1 koop2 koop3;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"koopXmot | koop_1 XWITH mot;",
+"",
+"! structural model",
+"!ben ON koop_1 mot                   ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !      koopXmot;                     ! interaction
+ !aen ON koop_1 mot
+ !       sex  expT1 expT3 Dauer Art
+ !       koopXmot;
+ cen ON koop_1 mot
+        sex expT1 expT3 Dauer Art
+        koopXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.4_syntax_lms_ce.inp, "rq3.4_syntax_lms_ce.inp")
+
+# run model
+runModels(
+  "rq3.4_syntax_lms_ce.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_4_ce <- readModels(
+  "rq3.4_syntax_lms_ce.out")
+Mplus_syntax_lms_4_ce[]
+
+
+# m3.5 - second order factor model - BE
+rq3.5_syntax_lms_be.inp <- c(
+"TITLE: RQ3.5 LMS - BE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = klar1 klar2 klar3 klar4 klar5",
+"         praxis1 praxis2 praxis3 praxis4",
+"         aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6",
+"         koop1 koop2 koop3",
+"         learn_a learn_b learn_c learn_d",
+"         beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM = INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"klar_1 BY klar1 klar2 klar3 klar4 klar5;",
+"praxis_1 BY praxis1 praxis2 praxis3 praxis4;",
+"aktiv_1 BY aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6;",
+"koop_1 BY koop1 koop2 koop3;",
+"SOF BY klar_1 praxis_1 aktiv_1 koop_1;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"sofXmot | SOF XWITH mot;",
+"",
+"! structural model",
+"ben ON SOF mot                      ! independent variables
+        sex expT1 expT3 Dauer Art    ! control variables
+        sofXmot;                     ! interaction
+ !aen ON SOF mot
+ !       sex expT1 expT3 Dauer Art
+ !       sofXmot;
+ !cen ON SOF mot
+ !       sex expT1 expT3 Dauer Art
+ !       sofXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.5_syntax_lms_be.inp, "rq3.5_syntax_lms_be.inp")
+
+# run model
+runModels(
+  "rq3.5_syntax_lms_be.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_5_be <- readModels(
+  "rq3.5_syntax_lms_be.out")
+Mplus_syntax_lms_5_be[]
+
+# m3.5 - second order factor model - AE
+rq3.5_syntax_lms_ae.inp <- c(
+"TITLE: RQ3.5 LMS - AE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = klar1 klar2 klar3 klar4 klar5",
+"         praxis1 praxis2 praxis3 praxis4",
+"         aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6",
+"         koop1 koop2 koop3",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         affEn_a affEn_b affEn_c affEn_d",
+"         !cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM = INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"klar_1 BY klar1 klar2 klar3 klar4 klar5;",
+"praxis_1 BY praxis1 praxis2 praxis3 praxis4;",
+"aktiv_1 BY aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6;",
+"koop_1 BY koop1 koop2 koop3;",
+"SOF BY klar_1 praxis_1 aktiv_1 koop_1;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"aen BY affEn_a affEn_b affEn_c affEn_d;",
+"!cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"sofXmot | SOF XWITH mot;",
+"",
+"! structural model",
+"!ben ON SOF mot                      ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       sofXmot;                     ! interaction
+ aen ON SOF mot
+        sex expT1 expT3 Dauer Art
+        sofXmot;
+ !cen ON SOF mot
+ !       sex expT1 expT3 Dauer Art
+ !       sofXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.5_syntax_lms_ae.inp, "rq3.5_syntax_lms_ae.inp")
+
+# run model
+runModels(
+  "rq3.5_syntax_lms_ae.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_5_ae <- readModels(
+  "rq3.5_syntax_lms_ae.out")
+Mplus_syntax_lms_5_ae[]
+
+# m3.5 - second order factor model - CE
+rq3.5_syntax_lms_ce.inp <- c(
+"TITLE: RQ3.5 LMS - CE",
+"",
+"DATA: FILE = 'rq3.dat';",
+"",
+"VARIABLE:",
+"NAMES = VnameT ID klar1 klar2 klar3 klar4 klar5 praxis1 praxis2 praxis3 praxis4
+     aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6 koop1 koop2 koop3 zufried sex studyT
+     refT sType workT learn_a learn_b learn_c learn_d beEn_a beEn_b beEn_c beEn_d
+     beEn_e cogEn_a cogEn_b cogEn_c cogEn_d affEn_a affEn_b affEn_c affEn_d klar
+     praxis aktiv koop motivation beheng cogeng affeng Dauer type Art Schulart expT1
+     expT2 expT3;",
+"",
+"MISSING=.;",
+"",
+"USEVAR = klar1 klar2 klar3 klar4 klar5",
+"         praxis1 praxis2 praxis3 praxis4",
+"         aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6",
+"         koop1 koop2 koop3",
+"         learn_a learn_b learn_c learn_d",
+"         !beEn_a beEn_b beEn_c beEn_d beEn_e",
+"         !affEn_a affEn_b affEn_c affEn_d",
+"         cogEn_a cogEn_b cogEn_c cogEn_d",
+"         sex expT1 expT3 Dauer Art;",
+"",
+"ANALYSIS:",
+"TYPE = RANDOM;", 
+"ALGORITHM = INTEGRATION;",
+"ESTIMATOR = MLR;",
+"",
+"MODEL:",
+"! measurement models",
+"! independent variables",
+"klar_1 BY klar1 klar2 klar3 klar4 klar5;",
+"praxis_1 BY praxis1 praxis2 praxis3 praxis4;",
+"aktiv_1 BY aktiv1 aktiv2 aktiv3 aktiv4 aktiv5 aktiv6;",
+"koop_1 BY koop1 koop2 koop3;",
+"SOF BY klar_1 praxis_1 aktiv_1 koop_1;",
+"mot BY learn_a learn_b learn_c learn_d;",
+"",
+"! dependent variables",
+"!ben BY beEn_a beEn_b beEn_c beEn_d beEn_e;",
+"!aen BY affEn_a affEn_b affEn_c affEn_d;",
+"cen BY cogEn_a cogEn_b cogEn_c cogEn_d;",
+"",
+"! interaction",
+"sofXmot | SOF XWITH mot;",
+"",
+"! structural model",
+"!ben ON SOF mot                      ! independent variables
+ !       sex expT1 expT3 Dauer Art    ! control variables
+ !       sofXmot;                     ! interaction
+ !aen ON SOF mot
+ !       sex expT1 expT3 Dauer Art
+ !       sofXmot;
+ cen ON SOF mot
+        sex expT1 expT3 Dauer Art
+        sofXmot;",
+"",             
+"! covariance structure of predictors",
+"sex WITH expT1 expT3 Dauer Art;",
+"expT1 WITH expT3 Dauer Art;",
+"expT3 WITH Dauer Art;",
+"Dauer WITH Dauer Art;",
+"",
+"sex (v1);",
+"[sex] (m1);",
+"expT1 (v2);",
+"[expT1] (m2);",
+"expT3 (v3);",
+"[expT3] (m3);",
+"Art (v4);",
+"[Art] (m4);",
+"",
+"model constraint:",
+"0=m1*(1-m1)-v1;",
+"0=m2*(1-m2)-v2;",
+"0=m3*(1-m3)-v3;",
+"0=m4*(1-m4)-v4;",
+"",
+"OUTPUT: SAMPSTAT STDYX;")
+
+# save syntax
+writeLines(rq3.5_syntax_lms_ce.inp, "rq3.5_syntax_lms_ce.inp")
+
+# run model
+runModels(
+  "rq3.5_syntax_lms_ce.inp",
+  showOutput = TRUE)
+
+# show results
+Mplus_syntax_lms_5_ce <- readModels(
+  "rq3.5_syntax_lms_ce.out")
+Mplus_syntax_lms_5_ce[]
+
+
+# unload package
+pkgload:::unload("MplusAutomation")
+```
+### BENJAMINI-HOCHBERG CORRECTION
+```{r Benjamini-Hochberg correction}
+# load package
+library(stats)
+
+# RQ1
+# M1.1
+p.adjust(c(0.522, 0.001, 0.096, 0.801, 0.098, 0.961, 0.774,
+           0.760, 0.001, 0.094, 0.193, 0.548, 0.090, 0.001,
+           0.669, 0.001, 0.156, 0.182, 0.568, 0.651, 0.680), method = "BH")
+# M2.1
+p.adjust(c(0.416, 0.001, 0.047, 0.159, 0.138, 0.444, 0.746,
+           0.903, 0.001, 0.414, 0.252, 0.894, 0.985, 0.758,
+           0.825, 0.001, 0.437, 0.034, 0.429, 0.160, 0.167), method = "BH")
+# M3.1
+p.adjust(c(0.657, 0.001, 0.247, 0.791, 0.142, 0.775, 0.878,
+           0.420, 0.001, 0.001, 0.351, 0.473, 0.039, 0.079,
+           0.384, 0.001, 0.015, 0.111, 0.698, 0.740, 0.731), method = "BH")
+# M4.1
+p.adjust(c(0.673, 0.001, 0.210, 0.170, 0.200, 0.104, 0.023,
+           0.663, 0.001, 0.046, 0.755, 0.421, 0.001, 0.001,
+           0.626, 0.001, 0.108, 0.274, 0.227, 0.004, 0.147), method = "BH")
+
+# RQ2
+# M1.2
+p.adjust(c(0.485, 0.001, 0.004, 0.035, 0.917, 0.277, 0.898, 0.891,
+           0.865, 0.001, 0.152, 0.275, 0.191, 0.288, 0.128, 0.001,
+           0.911, 0.001, 0.001, 0.595, 0.225, 0.936, 0.555, 0.279), method = "BH")
+# M2.2
+p.adjust(c(0.400, 0.001, 0.005, 0.019, 0.279, 0.399, 0.388, 0.497,
+           0.990, 0.001, 0.060, 0.660, 0.282, 0.621, 0.952, 0.913,
+           0.929, 0.001, 0.001, 0.838, 0.034, 0.997, 0.123, 0.050), method = "BH")
+# M3.2
+p.adjust(c(0.566, 0.001, 0.019, 0.090, 0.895, 0.327, 0.733, 0.865,
+           0.463, 0.001, 0.541, 0.001, 0.340, 0.400, 0.038, 0.098,
+           0.563, 0.001, 0.004, 0.107, 0.120, 0.863, 0.671, 0.471), method = "BH")
+# M4.2
+p.adjust(c(0.587, 0.001, 0.011, 0.085, 0.173, 0.417, 0.149, 0.057,
+           0.787, 0.001, 0.069, 0.200, 0.725, 0.642, 0.001, 0.001,
+           0.828, 0.007, 0.001, 0.467, 0.271, 0.517, 0.019, 0.508), method = "BH")
+
+# RQ3 
+# M5.1, M5.2, M5.3
+p.adjust(c(0.001, 0.005, 0.887, 0.004, 0.979, 0.376, 0.742, 0.747,
+           0.001, 0.001, 0.001, 0.919, 0.289, 0.044, 0.875, 0.293,
+           0.001, 0.001, 0.041, 0.547, 0.426, 0.668, 0.491, 0.448), method = "BH")
+# M5.4, M5.5, M5.6
+p.adjust(c(0.001, 0.001, 0.463, 0.002, 0.451, 0.366, 0.141, 0.315,
+           0.001, 0.001, 0.001, 0.615, 0.267, 0.211, 0.940, 0.785,
+           0.001, 0.001, 0.032, 0.881, 0.030, 0.709, 0.144, 0.111), method = "BH")
+# M5.7, M5.8, M5.9
+p.adjust(c(0.001, 0.004, 0.309, 0.018, 0.885, 0.396, 0.452, 0.720,
+           0.001, 0.017, 0.001, 0.012, 0.695, 0.066, 0.035, 0.045,
+           0.001, 0.001, 0.001, 0.062, 0.205, 0.659, 0.634, 0.569), method = "BH")
+# M5.10, M5.11, M5.12
+p.adjust(c(0.001, 0.001, 0.001, 0.149, 0.137, 0.439, 0.047, 0.014,
+           0.220, 0.221, 0.142, 0.814, 0.445, 0.876, 0.015, 0.019,
+           0.082, 0.002, 0.245, 0.457, 0.460, 0.648, 0.030, 0.476), method = "BH")
+
+# unload package
+pkgload:::unload("stats")
+```
+## ROBUSTNESS CHECKS {.tabset .tabset-pills}
+### STRUCTURAL EQUATION MODELS - MULTIPLE IMPUTATION - RQ1 and RQ2
+```{r MI - Cronbachs Alpha for cognitive engagement, RQ1, and RQ2}
+# reduce data for MI
+mi_data <- data[, c("klar1", "klar2", "klar3", "klar4", "klar5", 
+"praxis1", "praxis2", "praxis3", "praxis4",
+"aktiv1", "aktiv2", "aktiv3", "aktiv4", "aktiv5", "aktiv6",
+"koop1", "koop2", "koop3",
+"learn_a", "learn_b", "learn_c", "learn_d",
+"beEn_a", "beEn_b", "beEn_c_r", "beEn_d", "beEn_e",
+"cogEn_a_r", "cogEn_b", "cogEn_c", "cogEn_d",
+"affEn_a", "affEn_b_r", "affEn_c", "affEn_d",
+"sex", "expT1", "expT3", "Dauer", "Art", "VnameT")]
+
+# Cronbachs' Alpha for cognitive engagement
+# load package
+library(mice)
+
+imp <- mice(
+  mi_data,
+  m = 50
+  )
+
+# extract the completed data in long format
+implong <- complete(imp, 'long')
+
+# function of Cronbachs' Alpha
+cronbach_fun <- function(list_compl_data, boot = TRUE, B = 1e4, ci = FALSE) {
+  n <- nrow(list_compl_data); p <- ncol(list_compl_data)
+  total_variance <- var(rowSums(list_compl_data))
+  item_variance <- sum(apply(list_compl_data, 2, sd)^2)
+  alpha <- (p/(p - 1)) * (1 - (item_variance/total_variance))
+  out <- list(alpha = alpha)
+  boot_alpha <- numeric(B)
+  if (boot) {
+    for (i in seq_len(B)) {
+      boot_dat <- list_compl_data[sample(seq_len(n), replace = TRUE), ]
+      total_variance <- var(rowSums(boot_dat))
+      item_variance <- sum(apply(boot_dat, 2, sd)^2)
+      boot_alpha[i] <- (p/(p - 1)) * (1 - (item_variance/total_variance))
+    }
+    out$var <- var(boot_alpha, na.rm = TRUE)
+  }
+  if (ci){
+    out$ci <- quantile(boot_alpha, c(.025,.975))
+  }
+  return(out)
+}
+
+
+# run function across all 50 datasets / not working in markdown
+m <- length(unique(implong$.imp))
+boot_alpha <- rep(list(NA), m)
+for (i in seq_len(m)) {
+  set.seed(i) # fix random number generator
+  sub <- implong[implong$.imp == i, -c(1:29,34:43)] # subsample, i.e., only the four cognitive engagement items
+  boot_alpha[[i]] <- cronbach_fun(sub)
+}
+
+# obtain Q and U (see ?pool.scalar)
+Q <- sapply(boot_alpha, function(x) x$alpha)
+U <- sapply(boot_alpha, function(x) x$var)
+
+# pooled estimates
+pool_estimates <- function(x) {
+  out <- c(
+    alpha = x$qbar,
+    lwr = x$qbar - qt(0.975, x$df) * sqrt(x$t),
+    upr = x$qbar + qt(0.975, x$df) * sqrt(x$t)
+  )
+  return(out)
+}
+
+# output
+pool_estimates(pool.scalar(Q, U))
+
+
+# unload package
+pkgload:::unload("mice")
+
+# impute data with mice::mice and fitting model with semTools:sem.mi
+# attention: sometime the summary function caused errors in RStudio. A fresh R session and a re-installation of semTools might help. It definitely works in R.
+library(semTools)
+library(lavaan)
+
+m1.0.mi.fit <- semTools::sem.mi(
+  model = m1.0,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m1.0.mi.fit,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m1.1.mi.fit <- semTools::sem.mi(
+  model = m1.1,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m1.1.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+  
+m2.0.mi.fit <- semTools::sem.mi(
+  model = m2.0,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m2.0.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m2.1.mi.fit <- semTools::sem.mi(
+  model = m2.1,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m2.1.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m3.0.mi.fit <- semTools::sem.mi(
+  model = m3.0,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m3.0.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m3.1.mi.fit <- semTools::sem.mi(
+  model = m3.1,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m3.1.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m4.0.mi.fit <- semTools::sem.mi(
+  model = m4.0,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m4.0.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m4.1.mi.fit <- semTools::sem.mi(
+  model = m4.1,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m4.1.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m5.1.mi.fit <- semTools::sem.mi(
+  model = m5.1,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m5.1.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m1.2.mi.fit <- semTools::sem.mi(
+  model = m1.2,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m1.2.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m2.2.mi.fit <- semTools::sem.mi(
+  model = m2.2,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m2.2.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m3.2.mi.fit <- semTools::sem.mi(
+  model = m3.2,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m3.2.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m4.2.mi.fit <- semTools::sem.mi(
+  model = m4.2,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m4.2.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+m5.2.mi.fit <- semTools::sem.mi(
+  model = m5.2,
+  data = mi_data,
+  m = 50,
+  miPackage = "mice",
+  seed = 281185,
+  estimator = "MLR",
+  cluster = "VnameT"
+)
+
+lavaan::summary(
+  m5.2.mi.fit,
+  fit.measures = TRUE,
+  standardized = TRUE,
+  test = "D2",
+  pool.robust = TRUE
+  )
+
+# clean environment
+rm(m1.0, m1.1, m2.0, m2.1, m3.0, m3.1,
+   m4.0, m4.1, m5.1,
+   m1.2, m2.2, m3.2, m4.2, m5.2,
+   m1.0.mi.fit, m1.1.mi.fit, m2.0.mi.fit, m2.1.mi.fit,
+   m3.0.mi.fit, m3.1.mi.fit, m4.0.mi.fit, m4.1.mi.fit,
+   m5.1.mi.fit,
+   m1.2.mi.fit, m2.2.mi.fit, m3.2.mi.fit,
+   m4.2.mi.fit, m5.2.mi.fit)
+
+# unload package
+pkgload:::unload("semTools", "mice")
+```
+## ANALYSIS FOR REVISION
+```{r revision}
+
+      ##############
+      # Reviewer 1 #
+      ##############
+
+# load package
+library(stats)
+
+# 1. M5.8
+p.adjust(c(0.001, 0.017, 0.001, 0.012, 0.695, 0.066, 0.035, 0.045), method = "BH")
+
+# unload package
+pkgload:::unload("stats")
+
+
+# 2. Dimensionality of engagement
+# load package
+library(lavaan)
+library(dynamic)
+
+# 2.1. engagement (without any modifications)
+en.mod <- '
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+'
+fit <- cfa(en.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+modificationIndices(fit, sort = TRUE)
+# cfi   rmsea  srmr 
+# 0.929 0.076 0.080
+
+# 2.2. engagement (with modifications)
+# A crossloading seems to be helpful as aen and ben are highly correlated
+# ben =~ affEn_a
+
+en.mod <- '
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+
+# modification
+ben =~ affEn_a
+'
+fit <- cfa(en.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+modificationIndices(fit, sort = TRUE)
+# A residual correlation seems to be helpful
+# beEn_c_r ~~ cogEn_a_r
+
+en.mod <- '
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+
+# modification
+ben =~ affEn_a
+beEn_c_r ~~ cogEn_a_r
+cen =~ beEn_b
+'
+fit <- cfa(en.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+modificationIndices(fit, sort = TRUE)
+# Another crossloading seems to be helpful
+# cen =~ beEn_b
+
+# dynamic fit indices
+en.mod.dynf <- '
+ben =~ .847*beEn_a + .427*beEn_b + .121*beEn_c_r + .668*beEn_d + .778*beEn_e
+aen =~ .840*affEn_a + .759*affEn_b_r + .867*affEn_c + .725*affEn_d
+cen =~ .446*cogEn_a_r + .747*cogEn_b + .690*cogEn_c + .696*cogEn_d
+ben =~ .085*affEn_a
+cen =~ .286*beEn_b
+beEn_c_r ~~ .344*cogEn_a_r
+ben ~~ .336*aen + .523*cen
+aen ~~ .788*cen
+
+'
+n <- 568
+cfaHB(model=en.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+# cfi   rmsea  srmr 
+# 0.958 0.060 0.066 
+
+# 2.3. engagement (with modification as used for aen in the manuscript)
+en.mod <- '
+ben =~ beEn_a + beEn_b + beEn_c_r + beEn_d + beEn_e
+aen =~ affEn_a + affEn_b_r + affEn_c + affEn_d
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+
+# modifications
+affEn_b_r ~~ affEn_d
+'
+fit <- cfa(en.mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# dynamic fit indices
+en.mod.dynf <- '
+ben =~ .846*beEn_a + .602*beEn_b + .126*beEn_c_r + .659*beEn_d + .770*beEn_e
+aen =~ .871*affEn_a + .770*affEn_b_r + .861*affEn_c + .737*affEn_d
+cen =~ .494*cogEn_a_r + .749*cogEn_b + .682*cogEn_c + .699*cogEn_d
+affEn_b_r ~~ -.145*affEn_d
+ben ~~ .396*aen + .555*cen
+aen ~~ .795*cen
+'
+n <- 568
+cfaHB(model=en.mod.dynf, n=n, manual=TRUE, plot = TRUE)
+#  cfi  rmsea  srmr 
+# 0.931 0.075 0.080 
+
+
+# 3. Dimensionality of cognitive activation and cogntive engagement
+mod <- '
+aktiv_1   =~ aktiv1 + aktiv2 + aktiv3 + aktiv4 + aktiv5 + aktiv6
+cen =~ cogEn_a_r + cogEn_b + cogEn_c + cogEn_d
+'
+fit <- cfa(mod, data = data, missing = "fiml")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+fitMeasures(fit, c("cfi","rmsea","srmr"))
+
+# unload package
+pkgload:::unload("lavaan", "dynamic")
+```
